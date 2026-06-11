@@ -25,6 +25,7 @@ public class StartActivity extends Activity {
     private static final int REQUEST_SCAN_BARCODE = 501;
 
     private static final String CONNECTION_ACTION_SCAN_BARCODE = "scan_barcode";
+    private static final String CONNECTION_ACTION_SIRI = "siri";
 
     private static final String PREFS_NAME = "start_activity";
     private static final String PREF_LAST_SCANNED_IP = "last_scanned_ip";
@@ -83,6 +84,11 @@ public class StartActivity extends Activity {
             ConnectionOption option = mOptions.get(position);
             if (CONNECTION_ACTION_SCAN_BARCODE.equals(option.connectionType)) {
                 startActivityForResult(new Intent(this, BarcodeScannerActivity.class), REQUEST_SCAN_BARCODE);
+                return;
+            }
+            if (CONNECTION_ACTION_SIRI.equals(option.connectionType)) {
+                startService(new Intent(this, HostService.class).setAction(HostService.ACTION_REQUEST_SIRI));
+                finish();
                 return;
             }
             Intent intent = new Intent(StartActivity.this, HostService.class)
@@ -147,6 +153,16 @@ public class StartActivity extends Activity {
                 R.string.title_connection_bluetooth,
                 null,
                 HostService.CONNECTION_TYPE_BLUETOOTH
+        ));
+        options.add(new ConnectionOption(
+                R.string.action_siri,
+                R.string.subtitle_connection_siri,
+                CONNECTION_ACTION_SIRI
+        ));
+        options.add(new ConnectionOption(
+                R.string.title_connection_bluetooth_le,
+                R.string.subtitle_connection_bluetooth_le,
+                HostService.CONNECTION_TYPE_BLUETOOTH_LE
         ));
         options.add(new ConnectionOption(
                 R.string.title_connection_wifi,

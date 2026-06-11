@@ -22,15 +22,20 @@ class NotificationsActivity : Activity() {
     private lateinit var mCardScroller: CardScrollView
 
     private var mNotifications: List<NotificationData> = listOf()
+    private var requestedPackageName: String? = null
+    private var requestedId: Int? = null
 
     // we cant use latest lifecycle due to API levels, so use coroutines directly
     private val customScope = CoroutineScope(Job() + Dispatchers.Main)
 
     override fun onCreate(bundle: Bundle?) {
         super.onCreate(bundle)
+        requestedPackageName = intent.getStringExtra(EXTRA_PACKAGE_NAME)
+        requestedId = if (intent.hasExtra(EXTRA_ID)) intent.getIntExtra(EXTRA_ID, 0) else null
 
         mNotifications = NotificationController.instance
-            .getDismissibleNotifications()
+            .getNotifications()
+            .value
             .sortedByDescending { it.postedTime }
 
         mCardScroller = CardScrollView(this)
@@ -42,11 +47,13 @@ class NotificationsActivity : Activity() {
 
         customScope.launch{
             NotificationController.instance.getNotifications().collect {
-                mNotifications = it.filter { !it.isOngoing }.sortedByDescending { it.postedTime }
+                mNotifications = it.sortedByDescending { it.postedTime }
                 if(mNotifications.isEmpty())
                     finish()
-                else
+                else {
                     mCardScroller.adapter?.notifyDataSetChanged()
+                    scrollToRequestedNotification()
+                }
             }
         }
 
@@ -73,6 +80,7 @@ class NotificationsActivity : Activity() {
                 am?.playSoundEffect(Sounds.DISMISSED)
             }
         setContentView(mCardScroller)
+        scrollToRequestedNotification()
     }
 
     override fun onResume() {
@@ -92,6 +100,22 @@ class NotificationsActivity : Activity() {
 
     private fun buildView(notification: NotificationData): View? =
         NotificationViewBuilder.buildView(this, notification).view
+
+    private fun scrollToRequestedNotification() {
+        val packageName = requestedPackageName ?: return
+        val id = requestedId ?: return
+        val index = mNotifications.indexOfFirst {
+            it.packageName == packageName && it.id == id
+        }
+        if (index >= 0) {
+            mCardScroller.setSelection(index)
+        }
+    }
+
+    companion object {
+        const val EXTRA_PACKAGE_NAME = "package_name"
+        const val EXTRA_ID = "id"
+    }
 }
 
 fun NotificationController.getDismissibleNotifications(): List<NotificationData> =

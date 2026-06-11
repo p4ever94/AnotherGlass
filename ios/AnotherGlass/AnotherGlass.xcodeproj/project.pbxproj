@@ -1,0 +1,357 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		7A1000012C00000000100001 /* AnotherGlassApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1000112C00000000100001 /* AnotherGlassApp.swift */; };
+		7A1000022C00000000100001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1000122C00000000100001 /* ContentView.swift */; };
+		7A1000032C00000000100001 /* CompanionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1000132C00000000100001 /* CompanionStore.swift */; };
+		7A1000042C00000000100001 /* LocationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1000142C00000000100001 /* LocationController.swift */; };
+		7A1000052C00000000100001 /* WiFiHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1000152C00000000100001 /* WiFiHost.swift */; };
+		7A1000062C00000000100001 /* RPCModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1000162C00000000100001 /* RPCModels.swift */; };
+		7A1000072C00000000100001 /* JSONLineSerializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1000172C00000000100001 /* JSONLineSerializer.swift */; };
+		7A1000082C00000000100001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7A1000192C00000000100001 /* Assets.xcassets */; };
+		7A1000092C00000000100001 /* NetworkAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10001A2C00000000100001 /* NetworkAddress.swift */; };
+		7A10000A2C00000000100001 /* CompanionHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10001B2C00000000100001 /* CompanionHost.swift */; };
+		7A10000B2C00000000100001 /* BluetoothLEHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10001C2C00000000100001 /* BluetoothLEHost.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		7A1000102C00000000100001 /* AnotherGlass.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AnotherGlass.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A1000112C00000000100001 /* AnotherGlassApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnotherGlassApp.swift; sourceTree = "<group>"; };
+		7A1000122C00000000100001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		7A1000132C00000000100001 /* CompanionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionStore.swift; sourceTree = "<group>"; };
+		7A1000142C00000000100001 /* LocationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationController.swift; sourceTree = "<group>"; };
+		7A1000152C00000000100001 /* WiFiHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WiFiHost.swift; sourceTree = "<group>"; };
+		7A1000162C00000000100001 /* RPCModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RPCModels.swift; sourceTree = "<group>"; };
+		7A1000172C00000000100001 /* JSONLineSerializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONLineSerializer.swift; sourceTree = "<group>"; };
+		7A1000182C00000000100001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		7A1000192C00000000100001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		7A10001A2C00000000100001 /* NetworkAddress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkAddress.swift; sourceTree = "<group>"; };
+		7A10001B2C00000000100001 /* CompanionHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionHost.swift; sourceTree = "<group>"; };
+		7A10001C2C00000000100001 /* BluetoothLEHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothLEHost.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7A1000202C00000000100001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		7A1000302C00000000100001 = {
+			isa = PBXGroup;
+			children = (
+				7A1000312C00000000100001 /* AnotherGlassApp */,
+				7A1000322C00000000100001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		7A1000312C00000000100001 /* AnotherGlassApp */ = {
+			isa = PBXGroup;
+			children = (
+				7A1000112C00000000100001 /* AnotherGlassApp.swift */,
+				7A1000122C00000000100001 /* ContentView.swift */,
+				7A1000132C00000000100001 /* CompanionStore.swift */,
+				7A1000142C00000000100001 /* LocationController.swift */,
+				7A10001B2C00000000100001 /* CompanionHost.swift */,
+				7A1000152C00000000100001 /* WiFiHost.swift */,
+				7A10001C2C00000000100001 /* BluetoothLEHost.swift */,
+				7A1000162C00000000100001 /* RPCModels.swift */,
+				7A1000172C00000000100001 /* JSONLineSerializer.swift */,
+				7A10001A2C00000000100001 /* NetworkAddress.swift */,
+				7A1000182C00000000100001 /* Info.plist */,
+				7A1000192C00000000100001 /* Assets.xcassets */,
+			);
+			path = AnotherGlassApp;
+			sourceTree = "<group>";
+		};
+		7A1000322C00000000100001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7A1000102C00000000100001 /* AnotherGlass.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7A1000402C00000000100001 /* AnotherGlass */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A1000602C00000000100001 /* Build configuration list for PBXNativeTarget "AnotherGlass" */;
+			buildPhases = (
+				7A1000502C00000000100001 /* Sources */,
+				7A1000202C00000000100001 /* Frameworks */,
+				7A1000512C00000000100001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AnotherGlass;
+			productName = AnotherGlass;
+			productReference = 7A1000102C00000000100001 /* AnotherGlass.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7A1000702C00000000100001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					7A1000402C00000000100001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = 7A1000712C00000000100001 /* Build configuration list for PBXProject "AnotherGlass" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 7A1000302C00000000100001;
+			productRefGroup = 7A1000322C00000000100001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7A1000402C00000000100001 /* AnotherGlass */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		7A1000512C00000000100001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A1000082C00000000100001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7A1000502C00000000100001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A1000012C00000000100001 /* AnotherGlassApp.swift in Sources */,
+				7A1000022C00000000100001 /* ContentView.swift in Sources */,
+				7A1000032C00000000100001 /* CompanionStore.swift in Sources */,
+				7A1000042C00000000100001 /* LocationController.swift in Sources */,
+				7A1000052C00000000100001 /* WiFiHost.swift in Sources */,
+				7A1000062C00000000100001 /* RPCModels.swift in Sources */,
+				7A1000072C00000000100001 /* JSONLineSerializer.swift in Sources */,
+				7A1000092C00000000100001 /* NetworkAddress.swift in Sources */,
+				7A10000A2C00000000100001 /* CompanionHost.swift in Sources */,
+				7A10000B2C00000000100001 /* BluetoothLEHost.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		7A1000802C00000000100001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		7A1000812C00000000100001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		7A1000822C00000000100001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 8VKYSJFT2V;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AnotherGlassApp/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.damn.anotherglass.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7A1000832C00000000100001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 8VKYSJFT2V;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AnotherGlassApp/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.damn.anotherglass.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7A1000602C00000000100001 /* Build configuration list for PBXNativeTarget "AnotherGlass" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A1000822C00000000100001 /* Debug */,
+				7A1000832C00000000100001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A1000712C00000000100001 /* Build configuration list for PBXProject "AnotherGlass" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A1000802C00000000100001 /* Debug */,
+				7A1000812C00000000100001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7A1000702C00000000100001 /* Project object */;
+}

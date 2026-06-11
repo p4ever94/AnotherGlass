@@ -26,6 +26,12 @@ public class LiveCardMenuActivity extends Activity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
+            case R.id.action_call:
+                startService(new Intent(this, HostService.class).setAction(HostService.ACTION_REQUEST_CONTACTS));
+                return true;
+            case R.id.action_siri:
+                startService(new Intent(this, HostService.class).setAction(HostService.ACTION_REQUEST_SIRI));
+                return true;
             case R.id.action_stop:
                 // Stop the service which will unpublish the live card.
                 stopService(new Intent(this, HostService.class));

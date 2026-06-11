@@ -18,6 +18,7 @@ Project consist of 5 modules:
 * **glass-xe** - Google Glass Explorer Edition application, containing Client Service
 * **glass-ee** - Google Glass Enterprise Edition application, containing Client Service
 * **mobile** - companion application for mobile device, containing Host Service
+* **ios/AnotherGlass** - experimental iOS companion, containing Wi-Fi and Bluetooth LE Host Service ports
 * **shared** - a shared module with shared classes and constants
 * **shared-glass** - a shared module between Glass applications
 
@@ -55,6 +56,24 @@ For Wi-Fi mode:
 1. Ensure Glass and phone are on the same network, or use phone hotspot.
 2. Start service on Glass and choose `Wi-Fi`, or `Scan Barcode` to provide an explicit server IP.
 3. If QR scan succeeds, the scanned IP is remembered and shown as a quick reconnect option.
+
+### iOS Companion
+
+The iOS port lives in `ios/AnotherGlass/AnotherGlass.xcodeproj`.
+
+It currently supports the parts of the Android companion that iOS can provide directly:
+* Wi-Fi JSON Lines RPC host on port `9090`
+* Bluetooth LE peripheral mode using the `AnotherGlass` BLE service
+* GPS passthrough to Glass using the same `MockGPS` payload as Android
+* receiving Glass battery updates
+* receiving media commands from Glass and reporting them in the app
+* receiving iOS notifications on Glass over Apple's ANCS when connected with Bluetooth LE
+
+Platform limitations:
+* iOS does not expose a Notification Listener equivalent inside the companion app. Notification forwarding uses ANCS directly between iOS and Glass over Bluetooth LE.
+* iOS does not allow a third-party app to globally inspect or control other apps' media sessions the way Android's `MediaSessionManager` does.
+
+To run it, open the Xcode project, select the `AnotherGlass` scheme, set a development team for signing, and run on a physical iPhone. For Wi-Fi, keep the iPhone and Glass on the same network or hotspot, start the Wi-Fi host in the iOS app, then connect from Glass using Wi-Fi or the barcode flow with the local IP shown in the iOS app. For Bluetooth LE, select `Bluetooth LE` in the iOS app, start it, then choose `Bluetooth LE` from the Glass Explorer Edition connection menu.
 
 ### Google Glass Enterprise Edition
 

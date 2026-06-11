@@ -76,7 +76,7 @@ public class NotificationsCardController extends BroadcastReceiver {
             // do not scroll to ongoing notifications, they can update a lot and block UI
         } else {
             liveCard = new LiveCard(service, STACK_LIVE_CARD_TAG);
-            PendingIntent intent = getCardDismissPendingIntent(id.toString());
+            PendingIntent intent = getNotificationsPendingListIntent(data);
             liveCard.setAction(intent);
             liveCard.publish(LiveCard.PublishMode.REVEAL);
             mOngoingCards.put(id, liveCard);
@@ -93,11 +93,7 @@ public class NotificationsCardController extends BroadcastReceiver {
 
         // Update intent
         // todo: logic there is a bit flawed, since NotificationsActivity can't clear stack or remove card right now
-        PendingIntent pendingIntent =
-                hasMore
-                        ? getNotificationsPendingListIntent()
-                        : getCardDismissPendingIntent(CARD_ID_STACK);
-        mStackedCard.setAction(pendingIntent);
+        mStackedCard.setAction(getNotificationsPendingListIntent(data));
 
         if (!mStackedCard.isPublished())
             mStackedCard.publish(LiveCard.PublishMode.REVEAL);
@@ -105,8 +101,10 @@ public class NotificationsCardController extends BroadcastReceiver {
             mStackedCard.navigate();
     }
 
-    private PendingIntent getNotificationsPendingListIntent() {
+    private PendingIntent getNotificationsPendingListIntent(NotificationData data) {
         Intent menuIntent = new Intent(service, NotificationsActivity.class);
+        menuIntent.putExtra(NotificationsActivity.EXTRA_PACKAGE_NAME, data.packageName);
+        menuIntent.putExtra(NotificationsActivity.EXTRA_ID, data.id);
         return PendingIntent.getActivity(service, (int) System.currentTimeMillis(), menuIntent, 0);
     }
 

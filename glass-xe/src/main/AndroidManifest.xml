@@ -11,6 +11,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -18,6 +19,9 @@
     <uses-permission
         android:name="android.permission.ACCESS_MOCK_LOCATION"
         tools:ignore="MockLocation,ProtectedPermissions" />
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -29,6 +33,10 @@
             android:name=".notifications.NotificationsActivity"
             android:icon="@drawable/ic_glass_logo"
             android:label="@string/title_activity_notifications" />
+        <activity
+            android:name=".call.CallContactsActivity"
+            android:icon="@drawable/ic_glass_logo"
+            android:label="@string/title_activity_call_contacts" />
         <activity
             android:name=".media.MediaPlaybackActivity"
             android:icon="@drawable/ic_glass_logo"
@@ -47,12 +55,30 @@
             android:icon="@drawable/ic_glass_logo"
             android:label="@string/title_activity_start">
             <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
                 <action android:name="com.google.android.glass.action.VOICE_TRIGGER" />
             </intent-filter>
 
             <meta-data
                 android:name="com.google.android.glass.VoiceTrigger"
                 android:resource="@xml/voice_trigger" />
+        </activity>
+        <activity
+            android:name=".SiriVoiceActivity"
+            android:exported="true"
+            android:icon="@drawable/ic_glass_logo"
+            android:label="@string/action_siri">
+            <intent-filter>
+                <action android:name="com.google.android.glass.action.VOICE_TRIGGER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="com.google.android.glass.VoiceTrigger"
+                android:resource="@xml/voice_trigger_siri" />
         </activity>
 
         <service

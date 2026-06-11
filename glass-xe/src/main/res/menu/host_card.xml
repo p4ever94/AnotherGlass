@@ -1,5 +1,11 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/action_call"
+        android:title="@string/action_call" />
+    <item
+        android:id="@+id/action_siri"
+        android:title="@string/action_siri" />
+    <item
         android:id="@+id/action_stop"
         android:icon="@drawable/ic_stop"
         android:title="@string/action_stop" />

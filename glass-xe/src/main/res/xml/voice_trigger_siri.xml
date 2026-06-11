@@ -1,0 +1,2 @@
+<!-- Custom development voice trigger for "ok glass". -->
+<trigger keyword="@string/voice_trigger_siri" />

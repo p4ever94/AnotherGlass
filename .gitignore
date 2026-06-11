@@ -8,3 +8,6 @@
 .externalNativeBuild
 /.settings/org.eclipse.buildship.core.prefs
 /python/.idea
+xcuserdata/
+*.xcuserstate
+DerivedData/
