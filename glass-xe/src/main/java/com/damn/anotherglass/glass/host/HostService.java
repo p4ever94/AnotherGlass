@@ -73,6 +73,8 @@ public class HostService extends Service {
     public static final String ACTION_REQUEST_SIRI = "com.damn.anotherglass.glass.host.action.REQUEST_SIRI";
     public static final String ACTION_REQUEST_CONTACTS = "com.damn.anotherglass.glass.host.action.REQUEST_CONTACTS";
     public static final String ACTION_REQUEST_CALL = "com.damn.anotherglass.glass.host.action.REQUEST_CALL";
+    public static final String EXTRA_CONTACTS_OFFSET = "contacts_offset";
+    public static final String EXTRA_CONTACTS_LIMIT = "contacts_limit";
 
     public static final String CONNECTION_TYPE_BLUETOOTH = "bluetooth";
     public static final String CONNECTION_TYPE_BLUETOOTH_LE = "bluetooth_le";
@@ -116,6 +118,8 @@ public class HostService extends Service {
         boolean requestCall = intent != null && ACTION_REQUEST_CALL.equals(intent.getAction());
         String callDisplayName = intent != null ? intent.getStringExtra(EXTRA_DISPLAY_NAME) : null;
         String callPhoneNumber = intent != null ? intent.getStringExtra(EXTRA_PHONE_NUMBER) : null;
+        int contactsOffset = intent != null ? intent.getIntExtra(EXTRA_CONTACTS_OFFSET, 0) : 0;
+        int contactsLimit = intent != null ? intent.getIntExtra(EXTRA_CONTACTS_LIMIT, 25) : 25;
         if (mLiveCard == null) {
             mLiveCard = new LiveCard(this, LIVE_CARD_TAG);
 
@@ -199,7 +203,7 @@ public class HostService extends Service {
             if (requestSiri) {
                 requestSiri();
             } else if (requestContacts) {
-                requestContacts();
+                requestContacts(contactsOffset, contactsLimit);
             } else if (requestCall) {
                 requestCall(callDisplayName, callPhoneNumber);
             }
@@ -209,7 +213,7 @@ public class HostService extends Service {
                 return START_STICKY;
             }
             if (requestContacts) {
-                requestContacts();
+                requestContacts(contactsOffset, contactsLimit);
                 return START_STICKY;
             }
             if (requestCall) {
@@ -231,11 +235,15 @@ public class HostService extends Service {
     }
 
     private void requestContacts() {
+        requestContacts(0, 25);
+    }
+
+    private void requestContacts(int offset, int limit) {
         if (mRPCClient == null) {
             Toast.makeText(this, R.string.msg_contacts_unavailable, Toast.LENGTH_SHORT).show();
             return;
         }
-        mRPCClient.send(new RPCMessage(CallAPI.ID, new ContactsRequestData(System.currentTimeMillis())));
+        mRPCClient.send(new RPCMessage(CallAPI.ID, new ContactsRequestData(System.currentTimeMillis(), offset, limit)));
         Toast.makeText(this, R.string.msg_contacts_requested, Toast.LENGTH_SHORT).show();
     }
 

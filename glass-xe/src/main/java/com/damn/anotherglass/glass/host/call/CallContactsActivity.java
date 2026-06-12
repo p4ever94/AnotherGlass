@@ -25,31 +25,57 @@ import java.util.List;
 
 public class CallContactsActivity extends Activity {
     private static final Object CONTACTS_LOCK = new Object();
+    private static final int CONTACTS_PAGE_SIZE = 25;
+    private static final int LOAD_MORE_THRESHOLD = 4;
     private static List<ContactData> latestContacts = new ArrayList<>();
+    private static boolean latestHasMore;
+    private static int latestNextOffset;
+    private static boolean loadingMore;
+    private static CallContactsActivity activeActivity;
 
     private CardScrollView cardScroller;
+    private ContactsAdapter adapter;
     private List<ContactData> contacts = Collections.emptyList();
+    private boolean hasMore;
+    private int nextOffset;
 
     public static void start(Context context, ContactListData data) {
+        CallContactsActivity activityToUpdate;
         synchronized (CONTACTS_LOCK) {
-            latestContacts = data != null && data.contacts != null
-                    ? new ArrayList<>(data.contacts)
-                    : new ArrayList<>();
+            int offset = data != null ? data.offset : 0;
+            List<ContactData> incoming = data != null && data.contacts != null
+                    ? data.contacts
+                    : Collections.emptyList();
+
+            if (offset <= 0) {
+                latestContacts = new ArrayList<>(incoming);
+            } else {
+                latestContacts.addAll(incoming);
+            }
+            latestHasMore = data != null && data.hasMore;
+            latestNextOffset = latestContacts.size();
+            loadingMore = false;
+            activityToUpdate = activeActivity;
         }
 
-        Intent intent = new Intent(context, CallContactsActivity.class);
-        if (!(context instanceof Activity)) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (activityToUpdate != null) {
+            activityToUpdate.refreshContacts();
+        } else {
+            Intent intent = new Intent(context, CallContactsActivity.class);
+            if (!(context instanceof Activity)) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            }
+            context.startActivity(intent);
         }
-        context.startActivity(intent);
     }
 
     @Override
     protected void onCreate(Bundle bundle) {
         super.onCreate(bundle);
-        contacts = snapshotContacts();
+        refreshContactState();
         cardScroller = new CardScrollView(this);
-        cardScroller.setAdapter(new ContactsAdapter());
+        adapter = new ContactsAdapter();
+        cardScroller.setAdapter(adapter);
         cardScroller.setOnItemClickListener((parent, view, position, id) -> {
             if (contacts.isEmpty()) {
                 finish();
@@ -75,19 +101,55 @@ public class CallContactsActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        synchronized (CONTACTS_LOCK) {
+            activeActivity = this;
+        }
         cardScroller.activate();
     }
 
     @Override
     protected void onPause() {
         cardScroller.deactivate();
+        synchronized (CONTACTS_LOCK) {
+            if (activeActivity == this) {
+                activeActivity = null;
+            }
+        }
         super.onPause();
     }
 
-    private static List<ContactData> snapshotContacts() {
+    private void refreshContacts() {
+        runOnUiThread(() -> {
+            refreshContactState();
+            adapter.notifyDataSetChanged();
+        });
+    }
+
+    private void refreshContactState() {
         synchronized (CONTACTS_LOCK) {
-            return new ArrayList<>(latestContacts);
+            contacts = new ArrayList<>(latestContacts);
+            hasMore = latestHasMore;
+            nextOffset = latestNextOffset;
         }
+    }
+
+    private void requestNextContactsIfNeeded(int position) {
+        if (!hasMore || position < contacts.size() - LOAD_MORE_THRESHOLD) {
+            return;
+        }
+
+        synchronized (CONTACTS_LOCK) {
+            if (loadingMore) {
+                return;
+            }
+            loadingMore = true;
+        }
+
+        Intent intent = new Intent(this, HostService.class)
+                .setAction(HostService.ACTION_REQUEST_CONTACTS)
+                .putExtra(HostService.EXTRA_CONTACTS_OFFSET, nextOffset)
+                .putExtra(HostService.EXTRA_CONTACTS_LIMIT, CONTACTS_PAGE_SIZE);
+        startService(intent);
     }
 
     private class ContactsAdapter extends CardScrollAdapter {
@@ -116,6 +178,7 @@ public class CallContactsActivity extends Activity {
                         .setText(R.string.msg_no_contacts)
                         .getView(convertView, parent);
             }
+            requestNextContactsIfNeeded(position);
 
             ContactData contact = contacts.get(position);
             String title = !TextUtils.isEmpty(contact.displayName) ? contact.displayName : contact.phoneNumber;

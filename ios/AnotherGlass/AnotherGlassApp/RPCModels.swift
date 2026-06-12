@@ -328,10 +328,14 @@ struct SiriRequestData: Codable {
 
 struct ContactsRequestData: Codable {
     var requestedAtMs: Int64
+    var offset: Int? = nil
+    var limit: Int? = nil
 }
 
 struct ContactListData: Codable {
     var contacts: [ContactData]
+    var offset: Int? = nil
+    var hasMore: Bool? = nil
 }
 
 struct ContactData: Codable {

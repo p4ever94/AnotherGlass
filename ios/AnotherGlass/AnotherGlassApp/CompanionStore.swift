@@ -157,9 +157,9 @@ final class CompanionStore: ObservableObject {
             let date = Date(timeIntervalSince1970: TimeInterval(request.requestedAtMs) / 1000)
             lastSiriRequest = date.formatted(date: .omitted, time: .standard)
             lastEvent = "Siri requested from Glass"
-        case .contactsRequest:
+        case .contactsRequest(let request):
             lastEvent = "Contacts requested from Glass"
-            sendContacts()
+            sendContacts(request)
         case .callRequest(let request):
             placeCall(request)
         case .none:
@@ -222,25 +222,26 @@ final class CompanionStore: ObservableObject {
         lastEvent = "Fake notification sent"
     }
 
-    private func sendContacts() {
+    private func sendContacts(_ request: ContactsRequestData) {
         Task {
             do {
                 guard try await requestContactsAccess() else {
                     lastEvent = "Contacts permission denied"
-                    send(.contactList(ContactListData(contacts: [])))
+                    send(.contactList(ContactListData(contacts: [], offset: request.offset, hasMore: false)))
                     return
                 }
 
                 lastEvent = "Loading contacts"
-                var contacts = try await loadContacts()
-                if transport == .bluetoothLE, contacts.count > maximumBluetoothContacts {
-                    contacts = Array(contacts.prefix(maximumBluetoothContacts))
-                }
-                send(.contactList(ContactListData(contacts: contacts)))
-                lastEvent = "Sent \(contacts.count) contacts"
+                let contacts = try await loadContacts()
+                let offset = max(request.offset ?? 0, 0)
+                let pageSize = max(request.limit ?? maximumBluetoothContacts, 1)
+                let end = min(offset + pageSize, contacts.count)
+                let page = offset < contacts.count ? Array(contacts[offset..<end]) : []
+                send(.contactList(ContactListData(contacts: page, offset: offset, hasMore: end < contacts.count)))
+                lastEvent = "Sent contacts \(offset + page.count)/\(contacts.count)"
             } catch {
                 lastEvent = "Contacts unavailable: \(error.localizedDescription)"
-                send(.contactList(ContactListData(contacts: [])))
+                send(.contactList(ContactListData(contacts: [], offset: request.offset, hasMore: false)))
             }
         }
     }
@@ -271,7 +272,7 @@ final class CompanionStore: ObservableObject {
 
     private func requestContactsAccess() async throws -> Bool {
         switch CNContactStore.authorizationStatus(for: .contacts) {
-        case .authorized:
+        case .authorized, .limited:
             return true
         case .notDetermined:
             return try await withCheckedThrowingContinuation { continuation in
@@ -304,8 +305,7 @@ final class CompanionStore: ObservableObject {
             var results: [ContactData] = []
 
             try contactStore.enumerateContacts(with: request) { contact, _ in
-                let fallbackName = contact.organizationName.isEmpty ? nil : contact.organizationName
-                let displayName = CNContactFormatter.string(from: contact, style: .fullName) ?? fallbackName
+                let displayName = CompanionStore.contactDisplayName(contact)
 
                 for (index, phone) in contact.phoneNumbers.enumerated() {
                     let phoneNumber = phone.value.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -326,6 +326,19 @@ final class CompanionStore: ObservableObject {
             }
         }
         .value
+    }
+
+    nonisolated private static func contactDisplayName(_ contact: CNContact) -> String? {
+        let nameParts = [
+            contact.givenName.trimmingCharacters(in: .whitespacesAndNewlines),
+            contact.familyName.trimmingCharacters(in: .whitespacesAndNewlines)
+        ].filter { !$0.isEmpty }
+        if !nameParts.isEmpty {
+            return nameParts.joined(separator: " ")
+        }
+
+        let organizationName = contact.organizationName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return organizationName.isEmpty ? nil : organizationName
     }
 
     private func placeCall(_ request: CallRequestData) {
