@@ -8,6 +8,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.LifecycleService
 import com.damn.anotherglass.shared.device.DeviceAPI
+import com.damn.anotherglass.shared.device.TimeSyncData
 import com.damn.anotherglass.shared.gps.GPSServiceAPI
 import com.damn.anotherglass.shared.gps.Location
 import com.damn.anotherglass.shared.media.MediaAPI
@@ -17,6 +18,7 @@ import com.damn.anotherglass.shared.notifications.NotificationsAPI
 import com.damn.anotherglass.shared.rpc.IRPCClient
 import com.damn.anotherglass.shared.rpc.RPCMessage
 import com.damn.anotherglass.shared.rpc.RPCMessageListener
+import com.damn.glass.shared.device.DeviceClock
 import com.damn.glass.shared.rpc.WiFiClient
 import com.damn.glass.shared.gps.MockGPS
 import com.damn.glass.shared.media.IRPCSender
@@ -131,6 +133,11 @@ class HostService : LifecycleService(), IService {
                         MediaController.instance.onMediaStateUpdate(mediaState)
                     }
 
+                    DeviceAPI.SERVICE_NAME -> {
+                        val timeSyncData = data.payload as? TimeSyncData ?: return
+                        syncDeviceTime(timeSyncData)
+                    }
+
                     else -> Log.e(TAG, "Unknown service: ${data.service}")
                 }
             }
@@ -157,6 +164,18 @@ class HostService : LifecycleService(), IService {
             ).show()
         }
         client?.start(this, listener)
+    }
+
+    private fun syncDeviceTime(data: TimeSyncData) {
+        val result = DeviceClock.apply(this, data)
+        if (!result.success) {
+            Log.w(TAG, "Time sync unavailable: ${result.error}")
+            Toast.makeText(
+                this,
+                "Time sync unavailable: missing SET_TIME permission",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     override fun onBind(intent: Intent): IBinder {

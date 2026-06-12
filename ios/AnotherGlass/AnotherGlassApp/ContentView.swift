@@ -70,6 +70,13 @@ struct ContentView: View {
         Section("Glass") {
             LabeledContent("Device", value: store.connectedDeviceName ?? "Not connected")
             LabeledContent("Battery", value: store.batteryText)
+
+            Button {
+                store.forceTimeSync()
+            } label: {
+                Label("Sync Date & Time", systemImage: "clock.arrow.circlepath")
+            }
+            .disabled(store.serviceState != .connected)
         }
     }
 

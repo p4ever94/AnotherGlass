@@ -113,6 +113,7 @@ final class CompanionStore: ObservableObject {
                 self.connectedDeviceName = name
                 self.batteryStatus = nil
                 self.lastEvent = "Connected"
+                self.sendTimeSync()
                 self.sendEmptyMediaState()
                 if self.isGPSEnabled {
                     self.locationController.start()
@@ -197,6 +198,19 @@ final class CompanionStore: ObservableObject {
 
     private func sendEmptyMediaState() {
         send(.mediaState(MediaStateData.empty))
+    }
+
+    func forceTimeSync() {
+        guard serviceState == .connected else {
+            lastEvent = "Connect Glass first"
+            return
+        }
+        sendTimeSync()
+        lastEvent = "Time sync sent"
+    }
+
+    private func sendTimeSync() {
+        send(.timeSync(.current))
     }
 
     func sendFakeNotification() {

@@ -22,6 +22,7 @@ import com.damn.anotherglass.extensions.notifications.NotificationExtension
 import com.damn.anotherglass.logging.ALog
 import com.damn.anotherglass.shared.device.BatteryStatusData
 import com.damn.anotherglass.shared.device.DeviceAPI
+import com.damn.anotherglass.shared.device.TimeSyncData
 import com.damn.anotherglass.shared.media.MediaAPI
 import com.damn.anotherglass.shared.media.MediaCommandData
 import com.damn.anotherglass.shared.media.MediaStateData
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import java.util.TimeZone
 
 class GlassService
     : LifecycleService(), SharedPreferences.OnSharedPreferenceChangeListener {
@@ -98,6 +100,7 @@ class GlassService
                 mDeviceName.value = device
                 mBatteryStatus.value = null
                 mConnectedDevice.value = mConnectedDeviceData
+                sendTimeSync()
                 if (mSettings.isGPSEnabled) mGPS.start()
                 if (mSettings.isNotificationsEnabled) mNotifications.start()
                 mMediaState.value = null
@@ -190,6 +193,15 @@ class GlassService
 
     fun send(message: RPCMessage) {
         mHost.send(message)
+    }
+
+    private fun sendTimeSync() {
+        mHost.send(
+            RPCMessage(
+                DeviceAPI.SERVICE_NAME,
+                TimeSyncData(System.currentTimeMillis(), TimeZone.getDefault().id)
+            )
+        )
     }
 
     fun sendMediaCommand(command: MediaCommandData) {

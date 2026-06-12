@@ -6,6 +6,8 @@
     <string name="title_activity_card_service">AnotherGlass LiveCard</string>
     <string name="action_call">Call</string>
     <string name="action_siri">Siri</string>
+    <string name="action_wifi_off">Wi-Fi Off</string>
+    <string name="action_wifi_on">Wi-Fi On</string>
     <string name="action_stop">Stop</string>
     <string name="msg_contacts_requested">Contacts requested</string>
     <string name="msg_contacts_unavailable">Connect to iPhone first</string>
@@ -26,6 +28,9 @@
     <string name="msg_disconnected">Disconnected</string>
     <string name="msg_failed_to_connect">Failed to connect</string>
     <string name="msg_connection_error_s">Error occurred:\n%s\nTap to retry</string>
+    <string name="msg_wifi_disabled">Wi-Fi disabled</string>
+    <string name="msg_wifi_enabled">Wi-Fi enabled</string>
+    <string name="msg_wifi_toggle_failed">Could not change Wi-Fi</string>
 
     <!-- Start activity / connection selection -->
     <string name="title_activity_start">AnotherGlass</string>

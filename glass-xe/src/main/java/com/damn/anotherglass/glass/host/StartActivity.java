@@ -12,6 +12,7 @@ import android.widget.AdapterView;
 import android.widget.Toast;
 
 import com.damn.anotherglass.glass.host.barcode.BarcodeScannerActivity;
+import com.damn.anotherglass.glass.host.wifi.WiFiPower;
 import com.damn.glass.shared.rpc.ConnectionUtils;
 import com.google.android.glass.widget.CardBuilder;
 import com.google.android.glass.widget.CardScrollAdapter;
@@ -26,6 +27,7 @@ public class StartActivity extends Activity {
 
     private static final String CONNECTION_ACTION_SCAN_BARCODE = "scan_barcode";
     private static final String CONNECTION_ACTION_SIRI = "siri";
+    private static final String CONNECTION_ACTION_TOGGLE_WIFI = "toggle_wifi";
 
     private static final String PREFS_NAME = "start_activity";
     private static final String PREF_LAST_SCANNED_IP = "last_scanned_ip";
@@ -73,6 +75,8 @@ public class StartActivity extends Activity {
                 if (option.connectionType.equals(HostService.CONNECTION_TYPE_WIFI)) {
                     String gatewayIp = ConnectionUtils.getHostIPAddress(StartActivity.this);
                     builder.setFootnote(gatewayIp != null ? gatewayIp : getString(R.string.subtitle_connection_wifi));
+                } else if (CONNECTION_ACTION_TOGGLE_WIFI.equals(option.connectionType)) {
+                    builder.setText(getWiFiToggleTitle());
                 } else if (option.footnoteRes != null) {
                     builder.setFootnote(option.footnoteRes);
                 }
@@ -89,6 +93,11 @@ public class StartActivity extends Activity {
             if (CONNECTION_ACTION_SIRI.equals(option.connectionType)) {
                 startService(new Intent(this, HostService.class).setAction(HostService.ACTION_REQUEST_SIRI));
                 finish();
+                return;
+            }
+            if (CONNECTION_ACTION_TOGGLE_WIFI.equals(option.connectionType)) {
+                toggleWiFi();
+                mCardScroller.getAdapter().notifyDataSetChanged();
                 return;
             }
             Intent intent = new Intent(StartActivity.this, HostService.class)
@@ -155,6 +164,11 @@ public class StartActivity extends Activity {
                 HostService.CONNECTION_TYPE_BLUETOOTH
         ));
         options.add(new ConnectionOption(
+                R.string.action_wifi_off,
+                null,
+                CONNECTION_ACTION_TOGGLE_WIFI
+        ));
+        options.add(new ConnectionOption(
                 R.string.action_siri,
                 R.string.subtitle_connection_siri,
                 CONNECTION_ACTION_SIRI
@@ -187,6 +201,21 @@ public class StartActivity extends Activity {
                 CONNECTION_ACTION_SCAN_BARCODE
         ));
         return options;
+    }
+
+    private String getWiFiToggleTitle() {
+        return getString(WiFiPower.isEnabled(this) ? R.string.action_wifi_off : R.string.action_wifi_on);
+    }
+
+    private void toggleWiFi() {
+        WiFiPower.Result result = WiFiPower.toggle(this);
+        Toast.makeText(
+                this,
+                result.success
+                        ? (result.enabled ? R.string.msg_wifi_enabled : R.string.msg_wifi_disabled)
+                        : R.string.msg_wifi_toggle_failed,
+                Toast.LENGTH_SHORT
+        ).show();
     }
 
     private static class ConnectionOption {

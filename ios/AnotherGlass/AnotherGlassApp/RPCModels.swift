@@ -16,6 +16,7 @@ enum ServiceID {
 enum JavaClassName {
     static let location = "com.damn.anotherglass.shared.gps.Location"
     static let battery = "com.damn.anotherglass.shared.device.BatteryStatusData"
+    static let timeSync = "com.damn.anotherglass.shared.device.TimeSyncData"
     static let mediaCommand = "com.damn.anotherglass.shared.media.MediaCommandData"
     static let mediaState = "com.damn.anotherglass.shared.media.MediaStateData"
     static let notification = "com.damn.anotherglass.shared.notifications.NotificationData"
@@ -34,6 +35,10 @@ struct RPCMessage: Codable {
 
     static func location(_ location: GlassLocation) -> RPCMessage {
         RPCMessage(service: ServiceID.gps, type: JavaClassName.location, payload: .location(location))
+    }
+
+    static func timeSync(_ data: TimeSyncData) -> RPCMessage {
+        RPCMessage(service: ServiceID.device, type: JavaClassName.timeSync, payload: .timeSync(data))
     }
 
     static func mediaState(_ state: MediaStateData) -> RPCMessage {
@@ -75,6 +80,8 @@ struct RPCMessage: Codable {
             payload = (try? .location(container.decode(GlassLocation.self, forKey: .payload))) ?? .unsupported
         case JavaClassName.battery:
             payload = (try? .battery(container.decode(BatteryStatus.self, forKey: .payload))) ?? .unsupported
+        case JavaClassName.timeSync:
+            payload = (try? .timeSync(container.decode(TimeSyncData.self, forKey: .payload))) ?? .unsupported
         case JavaClassName.mediaCommand:
             payload = (try? .mediaCommand(container.decode(MediaCommandData.self, forKey: .payload))) ?? .unsupported
         case JavaClassName.mediaState:
@@ -104,6 +111,8 @@ struct RPCMessage: Codable {
             try container.encode(location, forKey: .payload)
         case .battery(let battery):
             try container.encode(battery, forKey: .payload)
+        case .timeSync(let data):
+            try container.encode(data, forKey: .payload)
         case .mediaCommand(let command):
             try container.encode(command, forKey: .payload)
         case .mediaState(let state):
@@ -127,6 +136,7 @@ struct RPCMessage: Codable {
 enum Payload {
     case location(GlassLocation)
     case battery(BatteryStatus)
+    case timeSync(TimeSyncData)
     case mediaCommand(MediaCommandData)
     case mediaState(MediaStateData)
     case notification(NotificationData)
@@ -156,6 +166,18 @@ struct GlassLocation: Codable {
 
     var displayText: String {
         String(format: "%.5f, %.5f", latitude, longitude)
+    }
+}
+
+struct TimeSyncData: Codable {
+    var currentTimeMillis: Int64
+    var timeZoneId: String
+
+    static var current: TimeSyncData {
+        TimeSyncData(
+            currentTimeMillis: Int64(Date().timeIntervalSince1970 * 1000),
+            timeZoneId: TimeZone.current.identifier
+        )
     }
 }
 

@@ -16,6 +16,7 @@ final class BluetoothLEHost: NSObject, CompanionHost {
     private var isActive = false
     private var isPublishingService = false
     private var shouldStartWhenPoweredOn = false
+    private var hasReceivedWriteConnection = false
 
     var isListening: Bool {
         isActive && (manager?.isAdvertising == true || subscribedCentral != nil || shouldStartWhenPoweredOn || isPublishingService)
@@ -45,6 +46,7 @@ final class BluetoothLEHost: NSObject, CompanionHost {
         phoneToGlass = nil
         glassToPhone = nil
         subscribedCentral = nil
+        hasReceivedWriteConnection = false
         receiveBuffer.removeAll()
         pendingChunks.removeAll()
     }
@@ -84,6 +86,7 @@ final class BluetoothLEHost: NSObject, CompanionHost {
 
         self.phoneToGlass = phoneToGlass
         self.glassToPhone = glassToPhone
+        hasReceivedWriteConnection = false
 
         isPublishingService = true
         manager.add(service)
@@ -183,7 +186,9 @@ extension BluetoothLEHost: CBPeripheralManagerDelegate {
         guard characteristic.uuid == BluetoothLEID.phoneToGlass else { return }
         subscribedCentral = nil
         pendingChunks.removeAll()
-        onDisconnected?(nil)
+        if !hasReceivedWriteConnection {
+            onDisconnected?(nil)
+        }
         if isActive && (shouldStartWhenPoweredOn || peripheral.state == .poweredOn) {
             publishService()
         }
@@ -192,6 +197,11 @@ extension BluetoothLEHost: CBPeripheralManagerDelegate {
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
         for request in requests {
             if request.characteristic.uuid == BluetoothLEID.glassToPhone, let value = request.value {
+                if !hasReceivedWriteConnection {
+                    hasReceivedWriteConnection = true
+                    peripheral.stopAdvertising()
+                    onConnected?("Glass BLE")
+                }
                 appendReceived(value)
             }
             peripheral.respond(to: request, withResult: .success)
