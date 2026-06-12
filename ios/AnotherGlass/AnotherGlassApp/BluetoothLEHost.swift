@@ -136,7 +136,9 @@ final class BluetoothLEHost: NSObject, CompanionHost {
             guard !line.isEmpty else { continue }
 
             do {
-                let message = try JSONLineSerializer.decode(Data(line))
+                let data = Data(line)
+                JSONLineSerializer.logReceived(data, transport: "Bluetooth LE")
+                let message = try JSONLineSerializer.decode(data)
                 onMessage?(message)
             } catch {
                 let preview = String(data: Data(line.prefix(120)), encoding: .utf8) ?? "<binary>"
@@ -176,6 +178,7 @@ extension BluetoothLEHost: CBPeripheralManagerDelegate {
 
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
         guard characteristic.uuid == BluetoothLEID.phoneToGlass else { return }
+        print("[AnotherGlass][Bluetooth LE] central subscribed to phoneToGlass: \(central.identifier)")
         subscribedCentral = central
         peripheral.stopAdvertising()
         onConnected?("Glass BLE")
@@ -196,6 +199,7 @@ extension BluetoothLEHost: CBPeripheralManagerDelegate {
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
         for request in requests {
+            print("[AnotherGlass][Bluetooth LE] received write for \(request.characteristic.uuid), bytes=\(request.value?.count ?? 0)")
             if request.characteristic.uuid == BluetoothLEID.glassToPhone, let value = request.value {
                 if !hasReceivedWriteConnection {
                     hasReceivedWriteConnection = true

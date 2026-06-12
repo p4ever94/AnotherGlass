@@ -30,19 +30,9 @@ public class BatteryStatus {
         mReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if (intent == null) return;
-                int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-                int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-                int percentage = -1;
-                if(level >= 0 && scale > 0) {
-                    percentage = (int) ((level * 100.0) / scale);
-                }
-                int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-                boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                                     status == BatteryManager.BATTERY_STATUS_FULL;
-
-                if (mListener != null) {
-                    mListener.onBatteryStatusChanged(new BatteryStatusData(percentage, isCharging));
+                BatteryStatusData data = fromIntent(intent);
+                if (mListener != null && data != null) {
+                    mListener.onBatteryStatusChanged(data);
                 }
             }
         };
@@ -61,5 +51,28 @@ public class BatteryStatus {
             mContext.unregisterReceiver(mReceiver);
             mReceiver = null;
         }
+    }
+
+    public static BatteryStatusData readCurrent(Context context) {
+        Intent stickyIntent = context.registerReceiver(
+                null,
+                new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        return fromIntent(stickyIntent);
+    }
+
+    private static BatteryStatusData fromIntent(Intent intent) {
+        if (intent == null) return null;
+
+        int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+        int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+        int percentage = -1;
+        if(level >= 0 && scale > 0) {
+            percentage = (int) ((level * 100.0) / scale);
+        }
+        int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+        boolean isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                             status == BatteryManager.BATTERY_STATUS_FULL;
+
+        return new BatteryStatusData(percentage, isCharging);
     }
 }

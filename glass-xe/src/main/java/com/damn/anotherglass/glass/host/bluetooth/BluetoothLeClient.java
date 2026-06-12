@@ -39,9 +39,17 @@ public class BluetoothLeClient implements IRPCClient {
     private static final int WRITE_CHUNK_SIZE = 20;
     private static final int CUSTOM_WRITE_RETRY_MS = 250;
     private static final int CUSTOM_WRITE_MAX_RETRIES = 5;
+    private static final int INITIAL_SERVICE_DISCOVERY_DELAY_MS = 500;
+    private static final int SERVICE_DISCOVERY_RETRY_MS = 750;
+    private static final int SERVICE_DISCOVERY_MAX_RETRIES = 5;
+    private static final int SERVICE_DISCOVERY_RECONNECT_MAX_RETRIES = 3;
+    private static final int CUSTOM_SUBSCRIBE_RETRY_MS = 750;
+    private static final int CUSTOM_SUBSCRIBE_START_DELAY_MS = 3_000;
+    private static final int CUSTOM_SUBSCRIBE_MAX_RETRIES = 5;
     private static final int ANCS_DISCOVERY_RETRY_MS = 1_000;
     private static final int ANCS_DISCOVERY_MAX_RETRIES = 8;
     private static final int ANCS_SETUP_TIMEOUT_MS = 6_000;
+    private static final int ANCS_CLIENT_START_TIMEOUT_MS = 15_000;
     private static final int CONNECTION_STARTED_DELAY_MS = 300;
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
@@ -61,15 +69,26 @@ public class BluetoothLeClient implements IRPCClient {
     private int mCurrentWriteRetries;
     private boolean mBondReceiverRegistered;
     private boolean mCustomNotificationsSubscribed;
+    private boolean mCustomSubscribeInFlight;
     private boolean mConnectionStartedNotified;
     private boolean mPendingAncsStart;
     private boolean mReadyForCustomRpc;
     private boolean mWaitingForAncsSetup;
+    private boolean mReconnectingAfterBond;
+    private int mServiceDiscoveryRetryCount;
+    private int mServiceDiscoveryReconnectCount;
+    private int mCustomSubscribeRetryCount;
     private int mAncsDiscoveryRetryCount;
 
     private final Runnable mAncsSetupTimeout = () -> {
         if (mActive && mWaitingForAncsSetup) {
-            markAncsSetupFinished("ANCS setup timed out");
+            abortAncsSetup("ANCS setup timed out");
+        }
+    };
+
+    private final Runnable mAncsClientStartTimeout = () -> {
+        if (mActive && mAncsClient != null && !mAncsClient.isReady()) {
+            abortAncsSetup("ANCS client start timed out");
         }
     };
 
@@ -89,13 +108,9 @@ public class BluetoothLeClient implements IRPCClient {
             int previousBondState = intent.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.ERROR);
             Log.i(TAG, "BLE bond state changed: " + bondStateName(previousBondState) + " -> " + bondStateName(bondState));
             if (bondState == BluetoothDevice.BOND_BONDED) {
-                Log.i(TAG, "BLE bond completed, rediscovering services for ANCS");
+                Log.i(TAG, "BLE bond completed, reconnecting before ANCS setup");
                 mPendingAncsStart = false;
-                mHandler.postDelayed(() -> {
-                    if (mActive && mGatt != null) {
-                        mGatt.discoverServices();
-                    }
-                }, 750);
+                reconnectAfterBond(device);
             } else if (bondState == BluetoothDevice.BOND_NONE && mPendingAncsStart) {
                 Log.w(TAG, "BLE bond was not completed; ANCS notification details may be unavailable");
                 mPendingAncsStart = false;
@@ -132,8 +147,14 @@ public class BluetoothLeClient implements IRPCClient {
             }
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.i(TAG, "BLE connected, discovering services");
-                gatt.discoverServices();
+                mServiceDiscoveryRetryCount = 0;
+                mHandler.postDelayed(() -> discoverServices(gatt, "initial connection"),
+                        INITIAL_SERVICE_DISCOVERY_DELAY_MS);
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                if (mReconnectingAfterBond) {
+                    Log.i(TAG, "BLE disconnected for post-bond reconnect");
+                    return;
+                }
                 shutdownWithError(status == BluetoothGatt.GATT_SUCCESS ? null : "Bluetooth LE disconnected: " + status);
             }
         }
@@ -144,13 +165,15 @@ public class BluetoothLeClient implements IRPCClient {
                 return;
             }
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                shutdownWithError("Bluetooth LE service discovery failed: " + status);
+                reconnectForServiceDiscoveryOrFail(gatt, "Bluetooth LE service discovery failed: " + status);
                 return;
             }
+            mServiceDiscoveryRetryCount = 0;
+            mServiceDiscoveryReconnectCount = 0;
 
             BluetoothGattService service = gatt.getService(BluetoothLeConstants.SERVICE_UUID);
             if (service == null) {
-                shutdownWithError("AnotherGlass BLE service not found");
+                retryServiceDiscoveryOrFail(gatt, "AnotherGlass BLE service not found");
                 return;
             }
 
@@ -161,23 +184,11 @@ public class BluetoothLeClient implements IRPCClient {
                 return;
             }
 
-            if (mCustomNotificationsSubscribed) {
-                startAncsOrRequestBond(gatt);
-                return;
-            }
-
-            if (!gatt.setCharacteristicNotification(mPhoneToGlass, true)) {
-                shutdownWithError("Unable to enable Bluetooth LE notifications");
-                return;
-            }
-
-            BluetoothGattDescriptor descriptor = mPhoneToGlass.getDescriptor(BluetoothLeConstants.CLIENT_CHARACTERISTIC_CONFIG_UUID);
-            if (descriptor == null) {
-                shutdownWithError("Bluetooth LE notification descriptor not found");
-                return;
-            }
-            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-            gatt.writeDescriptor(descriptor);
+            mCustomNotificationsSubscribed = false;
+            notifyConnectionStartedIfReady("services discovered");
+            drainWriteQueue();
+            mHandler.postDelayed(() -> subscribeToCustomNotifications(gatt),
+                    mConnectionStartedNotified ? CUSTOM_SUBSCRIBE_RETRY_MS : CUSTOM_SUBSCRIBE_START_DELAY_MS);
         }
 
         @Override
@@ -188,6 +199,7 @@ public class BluetoothLeClient implements IRPCClient {
                     markAncsSetupFinished("ANCS notifications enabled");
                 } else if (!mAncsClient.hasPendingGattOperation()) {
                     mAncsClient = null;
+                    mHandler.removeCallbacks(mAncsClientStartTimeout);
                     scheduleAncsRediscovery("ANCS subscription did not complete");
                 }
                 drainWriteQueue();
@@ -197,13 +209,16 @@ public class BluetoothLeClient implements IRPCClient {
             if (!mActive) {
                 return;
             }
+            mCustomSubscribeInFlight = false;
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                shutdownWithError("Unable to subscribe to Bluetooth LE notifications: " + status);
+                retryCustomSubscribeOrFail(gatt, "Unable to subscribe to Bluetooth LE notifications: " + status);
+                drainWriteQueue();
                 return;
             }
+            mCustomSubscribeRetryCount = 0;
             mCustomNotificationsSubscribed = true;
             startAncsOrRequestBond(gatt);
-            notifyConnectionStartedIfReady();
+            notifyConnectionStartedIfReady("custom notifications subscribed");
         }
 
         @Override
@@ -271,7 +286,7 @@ public class BluetoothLeClient implements IRPCClient {
 
     @Override
     public void send(@NonNull RPCMessage message) {
-        if (!mActive || mGlassToPhone == null) {
+        if (!mActive) {
             return;
         }
         enqueue(JsonMessageCodec.toJsonLineBytes(message));
@@ -285,6 +300,8 @@ public class BluetoothLeClient implements IRPCClient {
         }
         send(new RPCMessage(null, null));
         mActive = false;
+        mReconnectingAfterBond = false;
+        mServiceDiscoveryReconnectCount = 0;
         closeGatt();
         stopScan();
         mHandler.removeCallbacks(mScanTimeout);
@@ -296,6 +313,22 @@ public class BluetoothLeClient implements IRPCClient {
     private void connect(BluetoothDevice device) {
         Log.i(TAG, "Connecting to BLE companion " + device.getAddress() + " bond=" + bondStateName(device.getBondState()));
         mGatt = device.connectGatt(mContext, false, mGattCallback);
+    }
+
+    private void reconnectAfterBond(BluetoothDevice device) {
+        if (!mActive) {
+            return;
+        }
+
+        mReconnectingAfterBond = true;
+        closeGatt();
+        mHandler.postDelayed(() -> {
+            if (!mActive) {
+                return;
+            }
+            mReconnectingAfterBond = false;
+            connect(device);
+        }, SERVICE_DISCOVERY_RETRY_MS);
     }
 
     @SuppressLint("MissingPermission")
@@ -320,12 +353,16 @@ public class BluetoothLeClient implements IRPCClient {
         mCurrentWriteChunk = null;
         mCurrentWriteRetries = 0;
         mCustomNotificationsSubscribed = false;
+        mCustomSubscribeInFlight = false;
         mConnectionStartedNotified = false;
         mPendingAncsStart = false;
         mReadyForCustomRpc = false;
         mWaitingForAncsSetup = false;
+        mServiceDiscoveryRetryCount = 0;
+        mCustomSubscribeRetryCount = 0;
         mAncsDiscoveryRetryCount = 0;
         mHandler.removeCallbacks(mAncsSetupTimeout);
+        mHandler.removeCallbacks(mAncsClientStartTimeout);
     }
 
     private void shutdownWithError(String error) {
@@ -333,6 +370,8 @@ public class BluetoothLeClient implements IRPCClient {
             return;
         }
         mActive = false;
+        mReconnectingAfterBond = false;
+        mServiceDiscoveryReconnectCount = 0;
         closeGatt();
         stopScan();
         mWriteQueue.clear();
@@ -366,10 +405,27 @@ public class BluetoothLeClient implements IRPCClient {
         }
 
         mAncsDiscoveryRetryCount = 0;
-        mAncsClient = new AncsClient(mRPCHandler, this::onAncsAuthorizationRequired);
+        mAncsClient = new AncsClient(
+                mRPCHandler,
+                this::onAncsAuthorizationRequired,
+                new AncsClient.GattCoordinator() {
+                    @Override
+                    public boolean canStartAncsOperation() {
+                        return canStartAncsGattOperation();
+                    }
+
+                    @Override
+                    public void onAncsOperationFinished() {
+                        drainWriteQueue();
+                    }
+                });
         if (!mAncsClient.start(gatt)) {
             mAncsClient = null;
+            mHandler.removeCallbacks(mAncsClientStartTimeout);
             scheduleAncsRediscovery("ANCS client did not start");
+        } else {
+            mHandler.removeCallbacks(mAncsClientStartTimeout);
+            mHandler.postDelayed(mAncsClientStartTimeout, ANCS_CLIENT_START_TIMEOUT_MS);
         }
     }
 
@@ -388,23 +444,150 @@ public class BluetoothLeClient implements IRPCClient {
         Log.i(TAG, "Retrying ANCS discovery (" + mAncsDiscoveryRetryCount + "/" + ANCS_DISCOVERY_MAX_RETRIES + "): " + reason);
         mHandler.postDelayed(() -> {
             if (mActive && mGatt != null && mAncsClient == null) {
-                mGatt.discoverServices();
+                discoverServices(mGatt, reason);
             }
         }, ANCS_DISCOVERY_RETRY_MS);
+    }
+
+    @SuppressLint("MissingPermission")
+    private void discoverServices(BluetoothGatt gatt, String reason) {
+        if (!mActive || gatt == null || gatt != mGatt) {
+            return;
+        }
+        Log.i(TAG, "Discovering BLE services: " + reason);
+        if (!gatt.discoverServices()) {
+            retryServiceDiscoveryOrFail(gatt, "Bluetooth LE service discovery could not be started");
+        }
+    }
+
+    private void scheduleServiceDiscoveryRetry(BluetoothGatt gatt, String reason) {
+        mHandler.postDelayed(() -> discoverServices(gatt, reason), SERVICE_DISCOVERY_RETRY_MS);
+    }
+
+    private void retryServiceDiscoveryOrFail(BluetoothGatt gatt, String reason) {
+        if (!mActive || gatt == null || gatt != mGatt) {
+            return;
+        }
+        if (mServiceDiscoveryRetryCount >= SERVICE_DISCOVERY_MAX_RETRIES) {
+            shutdownWithError(reason);
+            return;
+        }
+
+        mServiceDiscoveryRetryCount++;
+        Log.w(TAG, reason + "; retry " + mServiceDiscoveryRetryCount + "/" + SERVICE_DISCOVERY_MAX_RETRIES);
+        scheduleServiceDiscoveryRetry(gatt, reason);
+    }
+
+    @SuppressLint("MissingPermission")
+    private void reconnectForServiceDiscoveryOrFail(BluetoothGatt gatt, String reason) {
+        if (!mActive || gatt == null || gatt != mGatt) {
+            return;
+        }
+        if (mServiceDiscoveryReconnectCount >= SERVICE_DISCOVERY_RECONNECT_MAX_RETRIES) {
+            shutdownWithError(reason);
+            return;
+        }
+
+        BluetoothDevice device = gatt.getDevice();
+        mServiceDiscoveryReconnectCount++;
+        Log.w(TAG, reason + "; reconnect " + mServiceDiscoveryReconnectCount + "/" + SERVICE_DISCOVERY_RECONNECT_MAX_RETRIES);
+        closeGatt();
+        mHandler.postDelayed(() -> {
+            if (mActive) {
+                connect(device);
+            }
+        }, SERVICE_DISCOVERY_RETRY_MS);
+    }
+
+    @SuppressLint("MissingPermission")
+    private void subscribeToCustomNotifications(BluetoothGatt gatt) {
+        if (!mActive || gatt == null || gatt != mGatt || mPhoneToGlass == null) {
+            return;
+        }
+        if (mWriteInFlight
+                || mCustomSubscribeInFlight
+                || !mWriteQueue.isEmpty()
+                || (mAncsClient != null && mAncsClient.hasActiveGattOperation())) {
+            mHandler.postDelayed(() -> subscribeToCustomNotifications(gatt), CUSTOM_SUBSCRIBE_RETRY_MS);
+            return;
+        }
+
+        if (!gatt.setCharacteristicNotification(mPhoneToGlass, true)) {
+            retryCustomSubscribeOrFail(gatt, "Unable to enable Bluetooth LE notifications");
+            return;
+        }
+
+        BluetoothGattDescriptor descriptor = mPhoneToGlass.getDescriptor(BluetoothLeConstants.CLIENT_CHARACTERISTIC_CONFIG_UUID);
+        if (descriptor == null) {
+            shutdownWithError("Bluetooth LE notification descriptor not found");
+            return;
+        }
+        descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+        mCustomSubscribeInFlight = gatt.writeDescriptor(descriptor);
+        if (!mCustomSubscribeInFlight) {
+            retryCustomSubscribeOrFail(gatt, "Unable to start Bluetooth LE notification subscription");
+        }
+    }
+
+    private void retryCustomSubscribeOrFail(BluetoothGatt gatt, String reason) {
+        if (!mActive || gatt == null || gatt != mGatt) {
+            return;
+        }
+        if (mCustomSubscribeRetryCount >= CUSTOM_SUBSCRIBE_MAX_RETRIES) {
+            Log.w(TAG, reason + "; continuing Glass-to-phone BLE without custom notifications");
+            startAncsOrRequestBond(gatt);
+            return;
+        }
+
+        mCustomSubscribeRetryCount++;
+        Log.w(TAG, reason + "; retry " + mCustomSubscribeRetryCount + "/" + CUSTOM_SUBSCRIBE_MAX_RETRIES);
+        mHandler.postDelayed(() -> subscribeToCustomNotifications(gatt), CUSTOM_SUBSCRIBE_RETRY_MS);
     }
 
     private void markAncsSetupFinished(String reason) {
         Log.i(TAG, "BLE RPC ready after ANCS setup: " + reason);
         mHandler.removeCallbacks(mAncsSetupTimeout);
+        mHandler.removeCallbacks(mAncsClientStartTimeout);
         mWaitingForAncsSetup = false;
-        notifyConnectionStartedIfReady();
+        notifyConnectionStartedIfReady(reason);
+        drainWriteQueue();
     }
 
-    private void notifyConnectionStartedIfReady() {
-        if (!mActive || !mCustomNotificationsSubscribed || mWaitingForAncsSetup || mConnectionStartedNotified) {
+    private void abortAncsSetup(String reason) {
+        Log.w(TAG, "Aborting ANCS setup: " + reason);
+        mAncsClient = null;
+        mAncsDiscoveryRetryCount = 0;
+        mHandler.removeCallbacks(mAncsSetupTimeout);
+        mHandler.removeCallbacks(mAncsClientStartTimeout);
+        mWaitingForAncsSetup = false;
+        notifyConnectionStartedIfReady(reason);
+        drainWriteQueue();
+    }
+
+    private boolean canStartAncsGattOperation() {
+        return mActive
+                && !mWriteInFlight
+                && !mCustomSubscribeInFlight
+                && mWriteQueue.isEmpty();
+    }
+
+    private void notifyConnectionStartedIfReady(String reason) {
+        if (!mActive || mGlassToPhone == null) {
             return;
         }
         mReadyForCustomRpc = true;
+        if (mConnectionStartedNotified) {
+            Log.i(TAG, "BLE RPC channel refreshed: " + reason);
+            mHandler.postDelayed(() -> {
+                if (!mActive || !mReadyForCustomRpc) {
+                    return;
+                }
+                mRPCHandler.onConnectionStarted("iPhone BLE");
+                drainWriteQueue();
+            }, CONNECTION_STARTED_DELAY_MS);
+            return;
+        }
+
         mConnectionStartedNotified = true;
         mHandler.postDelayed(() -> {
             if (!mActive || !mReadyForCustomRpc) {
@@ -500,7 +683,7 @@ public class BluetoothLeClient implements IRPCClient {
         if (!mReadyForCustomRpc) {
             return;
         }
-        if (mWaitingForAncsSetup && mAncsClient != null && mAncsClient.hasPendingGattOperation()) {
+        if (mAncsClient != null && mAncsClient.hasActiveGattOperation()) {
             return;
         }
 

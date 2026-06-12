@@ -14,4 +14,9 @@ enum JSONLineSerializer {
         let decoder = JSONDecoder()
         return try decoder.decode(RPCMessage.self, from: data)
     }
+
+    static func logReceived(_ data: Data, transport: String) {
+        let rawMessage = String(data: data, encoding: .utf8) ?? data.map { String(format: "%02x", $0) }.joined()
+        print("[AnotherGlass][\(transport)][received] \(rawMessage)")
+    }
 }

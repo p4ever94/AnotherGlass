@@ -7,12 +7,14 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 
 import com.damn.anotherglass.shared.notifications.NotificationData;
 import com.damn.anotherglass.shared.notifications.NotificationsAPI;
 import com.damn.anotherglass.shared.rpc.RPCHandler;
 import com.damn.anotherglass.shared.rpc.RPCMessage;
+import com.damn.glass.shared.device.DeviceClock;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -40,7 +42,7 @@ class AncsClient {
     private static final int EVENT_MODIFIED = 1;
     private static final int EVENT_REMOVED = 2;
     private static final long STARTUP_BACKLOG_SUPPRESSION_MS = 2_500L;
-    private static final long PARTIAL_ATTRIBUTES_FLUSH_MS = 700L;
+    private static final long PARTIAL_ATTRIBUTES_FLUSH_MS = 2_000L;
 
     private static final int ATTR_APP_IDENTIFIER = 0;
     private static final int ATTR_TITLE = 1;
@@ -60,6 +62,7 @@ class AncsClient {
     private final ByteArrayOutputStream dataSourceBuffer = new ByteArrayOutputStream();
     private final Map<Long, String> appIdByNotificationUid = new HashMap<>();
     private final AuthorizationHandler authorizationHandler;
+    private final GattCoordinator gattCoordinator;
     private final Handler handlerThread = new Handler(Looper.getMainLooper());
 
     private BluetoothGatt gatt;
@@ -67,17 +70,25 @@ class AncsClient {
     private BluetoothGattCharacteristic controlPoint;
     private BluetoothGattCharacteristic dataSource;
     private Long activeAttributeRequestUid;
-    private long notificationSourceReadyAtMs;
+    private long notificationSourceReadyElapsedMs;
+    private long minimumNotificationPostedTimeMs;
     private boolean waitingForAttributeResponse;
     private boolean subscribingDataSource;
     private boolean descriptorWriteInFlight;
     private boolean controlPointWriteInFlight;
+    private boolean deferredGattOperation;
     private int authorizationRetryCount;
     private final Runnable flushPartialAttributes = this::flushPartialAttributeResponse;
 
-    AncsClient(RPCHandler handler, AuthorizationHandler authorizationHandler) {
+    interface GattCoordinator {
+        boolean canStartAncsOperation();
+        void onAncsOperationFinished();
+    }
+
+    AncsClient(RPCHandler handler, AuthorizationHandler authorizationHandler, GattCoordinator gattCoordinator) {
         this.handler = handler;
         this.authorizationHandler = authorizationHandler;
+        this.gattCoordinator = gattCoordinator;
     }
 
     boolean start(BluetoothGatt gatt) {
@@ -113,11 +124,15 @@ class AncsClient {
     }
 
     boolean hasPendingGattOperation() {
+        return descriptorWriteInFlight || controlPointWriteInFlight || deferredGattOperation;
+    }
+
+    boolean hasActiveGattOperation() {
         return descriptorWriteInFlight || controlPointWriteInFlight;
     }
 
     boolean isReady() {
-        return notificationSourceReadyAtMs > 0;
+        return notificationSourceReadyElapsedMs > 0;
     }
 
     void onDescriptorWrite(BluetoothGattDescriptor descriptor, int status) {
@@ -129,6 +144,7 @@ class AncsClient {
 
         if (status != BluetoothGatt.GATT_SUCCESS) {
             Log.w(TAG, "ANCS subscription failed for " + characteristic.getUuid() + ": " + status);
+            notifyOperationFinished();
             return;
         }
 
@@ -136,8 +152,10 @@ class AncsClient {
             subscribingDataSource = false;
             subscribe(notificationSource);
         } else if (NOTIFICATION_SOURCE_UUID.equals(characteristic.getUuid())) {
-            notificationSourceReadyAtMs = System.currentTimeMillis();
+            notificationSourceReadyElapsedMs = SystemClock.elapsedRealtime();
+            minimumNotificationPostedTimeMs = DeviceClock.lastSyncPhoneTimeMillis();
             Log.i(TAG, "ANCS notifications enabled");
+            notifyOperationFinished();
         }
     }
 
@@ -156,6 +174,7 @@ class AncsClient {
         }
 
         controlPointWriteInFlight = false;
+        notifyOperationFinished();
         if (status != BluetoothGatt.GATT_SUCCESS) {
             Log.w(TAG, "ANCS attribute request failed: " + status);
             Long failedUid = activeAttributeRequestUid;
@@ -185,6 +204,10 @@ class AncsClient {
     private boolean subscribe(BluetoothGattCharacteristic characteristic) {
         if (gatt == null || characteristic == null) {
             return false;
+        }
+        if (gattCoordinator != null && !gattCoordinator.canStartAncsOperation()) {
+            deferGattOperation(() -> subscribe(characteristic));
+            return true;
         }
         if (!gatt.setCharacteristicNotification(characteristic, true)) {
             Log.w(TAG, "Unable to enable ANCS notification for " + characteristic.getUuid());
@@ -223,13 +246,17 @@ class AncsClient {
     }
 
     private boolean isStartupBacklogEvent() {
-        return notificationSourceReadyAtMs > 0
-                && System.currentTimeMillis() - notificationSourceReadyAtMs < STARTUP_BACKLOG_SUPPRESSION_MS;
+        return notificationSourceReadyElapsedMs > 0
+                && SystemClock.elapsedRealtime() - notificationSourceReadyElapsedMs < STARTUP_BACKLOG_SUPPRESSION_MS;
     }
 
     @SuppressLint("MissingPermission")
     private void requestNextNotificationAttributes() {
         if (waitingForAttributeResponse || gatt == null || controlPoint == null) {
+            return;
+        }
+        if (gattCoordinator != null && !gattCoordinator.canStartAncsOperation()) {
+            deferGattOperation(this::requestNextNotificationAttributes);
             return;
         }
 
@@ -302,6 +329,7 @@ class AncsClient {
         waitingForAttributeResponse = false;
         controlPointWriteInFlight = false;
         authorizationRetryCount = 0;
+        notifyOperationFinished();
         requestNextNotificationAttributes();
     }
 
@@ -312,7 +340,22 @@ class AncsClient {
         waitingForAttributeResponse = false;
         authorizationRetryCount = 0;
         emitPosted(parsed);
+        notifyOperationFinished();
         requestNextNotificationAttributes();
+    }
+
+    private void notifyOperationFinished() {
+        if (gattCoordinator != null) {
+            gattCoordinator.onAncsOperationFinished();
+        }
+    }
+
+    private void deferGattOperation(Runnable operation) {
+        deferredGattOperation = true;
+        handlerThread.postDelayed(() -> {
+            deferredGattOperation = false;
+            operation.run();
+        }, 250);
     }
 
     private ParsedAttributes tryParseAttributes(byte[] bytes, boolean requireAllAttributes) {
@@ -327,27 +370,27 @@ class AncsClient {
         Map<Integer, String> attributes = new HashMap<>();
         while (offset < bytes.length && attributes.size() < REQUESTED_ATTRIBUTES.length) {
             if (offset + 3 > bytes.length) {
-                return null;
+                return parsedOrNull(uid, attributes, requireAllAttributes);
             }
 
             int attributeId = bytes[offset++] & 0xff;
             int length = readUInt16LE(bytes, offset);
             offset += 2;
             if (offset + length > bytes.length) {
-                return null;
+                return parsedOrNull(uid, attributes, requireAllAttributes);
             }
 
             attributes.put(attributeId, new String(bytes, offset, length, StandardCharsets.UTF_8));
             offset += length;
         }
 
-        if (requireAllAttributes && attributes.size() < REQUESTED_ATTRIBUTES.length) {
-            return null;
-        }
-        if (attributes.isEmpty()) {
-            return null;
-        }
+        return parsedOrNull(uid, attributes, requireAllAttributes);
+    }
 
+    private ParsedAttributes parsedOrNull(long uid, Map<Integer, String> attributes, boolean requireAllAttributes) {
+        if (attributes.isEmpty() || (requireAllAttributes && attributes.size() < REQUESTED_ATTRIBUTES.length)) {
+            return null;
+        }
         return new ParsedAttributes(uid, attributes);
     }
 
@@ -369,7 +412,13 @@ class AncsClient {
         data.appName = readableAppName(appId);
         data.title = firstNonEmpty(title, subtitle, data.appName);
         data.text = mergeText(subtitle, message);
-        data.postedTime = parseDate(parsed.attributes.get(ATTR_DATE));
+        long postedTime = parseDate(parsed.attributes.get(ATTR_DATE));
+        if (minimumNotificationPostedTimeMs > 0 && postedTime < minimumNotificationPostedTimeMs) {
+            Log.d(TAG, "Ignoring ANCS notification before iPhone sync time uid=" + parsed.uid);
+            emitRemoved(parsed.uid);
+            return;
+        }
+        data.postedTime = postedTime;
         data.isOngoing = false;
         data.deliveryMode = NotificationData.DeliveryMode.Sound;
 
@@ -384,7 +433,7 @@ class AncsClient {
         data.appName = "iPhone";
         data.title = "iPhone notification";
         data.text = "Notification received. Waiting for details from iOS.";
-        data.postedTime = System.currentTimeMillis();
+        data.postedTime = DeviceClock.now();
         data.isOngoing = false;
         data.deliveryMode = NotificationData.DeliveryMode.Sound;
 
@@ -398,7 +447,7 @@ class AncsClient {
         appIdByNotificationUid.remove(uid);
         data.packageName = "ios.ancs";
         data.appName = readableAppName(data.packageName);
-        data.postedTime = System.currentTimeMillis();
+        data.postedTime = DeviceClock.now();
         data.isOngoing = false;
         handler.onDataReceived(new RPCMessage(NotificationsAPI.ID, data));
     }
@@ -434,15 +483,18 @@ class AncsClient {
 
     private static long parseDate(String value) {
         if (value == null || value.length() == 0) {
-            return System.currentTimeMillis();
+            return DeviceClock.now();
         }
         try {
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd'T'HHmmss", Locale.US);
-            dateFormat.setTimeZone(TimeZone.getDefault());
+            String timeZoneId = DeviceClock.timeZoneId();
+            dateFormat.setTimeZone(timeZoneId != null && timeZoneId.length() > 0
+                    ? TimeZone.getTimeZone(timeZoneId)
+                    : TimeZone.getDefault());
             Date date = dateFormat.parse(value);
-            return date != null ? date.getTime() : System.currentTimeMillis();
+            return date != null ? date.getTime() : DeviceClock.now();
         } catch (Exception ignored) {
-            return System.currentTimeMillis();
+            return DeviceClock.now();
         }
     }
 

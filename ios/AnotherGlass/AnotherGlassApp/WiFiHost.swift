@@ -131,7 +131,9 @@ final class WiFiHost: CompanionHost {
             guard !line.isEmpty else { continue }
 
             do {
-                let message = try JSONLineSerializer.decode(Data(line))
+                let data = Data(line)
+                JSONLineSerializer.logReceived(data, transport: "Wi-Fi")
+                let message = try JSONLineSerializer.decode(data)
                 onMessage?(message)
             } catch {
                 onDisconnected?("Unable to parse message: \(error.localizedDescription)")

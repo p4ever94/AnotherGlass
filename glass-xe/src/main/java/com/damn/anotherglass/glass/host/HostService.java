@@ -33,6 +33,7 @@ import com.damn.anotherglass.glass.host.ui.MapCard;
 import com.damn.anotherglass.glass.host.wifi.WiFiActivity;
 import com.damn.anotherglass.shared.device.BatteryStatusData;
 import com.damn.anotherglass.shared.device.DeviceAPI;
+import com.damn.anotherglass.shared.device.TimeSyncData;
 import com.damn.anotherglass.shared.rpc.RPCMessage;
 import com.damn.anotherglass.shared.rpc.RPCMessageListener;
 import com.damn.anotherglass.shared.gps.GPSServiceAPI;
@@ -45,6 +46,7 @@ import com.damn.anotherglass.shared.siri.SiriAPI;
 import com.damn.anotherglass.shared.siri.SiriRequestData;
 import com.damn.anotherglass.shared.wifi.WiFiAPI;
 import com.damn.anotherglass.shared.wifi.WiFiConfiguration;
+import com.damn.glass.shared.device.DeviceClock;
 import com.google.android.glass.media.Sounds;
 import com.google.android.glass.timeline.LiveCard;
 import com.google.android.glass.timeline.LiveCard.PublishMode;
@@ -62,6 +64,7 @@ public class HostService extends Service {
     private static final String PREF_CONNECTION_TYPE = "connection_type";
     private static final int BATTERY_RESEND_DELAY_SHORT_MS = 1_500;
     private static final int BATTERY_RESEND_DELAY_LONG_MS = 5_000;
+    private static final int BATTERY_RESEND_INTERVAL_MS = 30_000;
 
     public static final String EXTRA_CONNECTION_TYPE = "connection_type";
     public static final String EXTRA_IP = "ip";
@@ -92,6 +95,13 @@ public class HostService extends Service {
     private BatteryStatus mBatteryStatus;
     private BatteryStatusData mLastBatteryStatus;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private final Runnable mBatteryResendRunnable = new Runnable() {
+        @Override
+        public void run() {
+            sendLastBatteryStatus();
+            mHandler.postDelayed(this, BATTERY_RESEND_INTERVAL_MS);
+        }
+    };
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -160,6 +170,8 @@ public class HostService extends Service {
                     sendLastBatteryStatus();
                     mHandler.postDelayed(HostService.this::sendLastBatteryStatus, BATTERY_RESEND_DELAY_SHORT_MS);
                     mHandler.postDelayed(HostService.this::sendLastBatteryStatus, BATTERY_RESEND_DELAY_LONG_MS);
+                    mHandler.removeCallbacks(mBatteryResendRunnable);
+                    mHandler.postDelayed(mBatteryResendRunnable, BATTERY_RESEND_INTERVAL_MS);
                 }
 
                 @Override
@@ -169,6 +181,7 @@ public class HostService extends Service {
 
                 @Override
                 public void onConnectionLost(@Nullable String error) {
+                    mHandler.removeCallbacks(mBatteryResendRunnable);
                     //noinspection ConstantConditions
                     audio.playSoundEffect(Sounds.ERROR);
                     Toast.makeText(
@@ -236,6 +249,10 @@ public class HostService extends Service {
     }
 
     private void sendLastBatteryStatus() {
+        BatteryStatusData currentBatteryStatus = BatteryStatus.readCurrent(this);
+        if (currentBatteryStatus != null) {
+            mLastBatteryStatus = currentBatteryStatus;
+        }
         if (mRPCClient != null && mLastBatteryStatus != null) {
             mRPCClient.send(new RPCMessage(DeviceAPI.SERVICE_NAME, mLastBatteryStatus));
         }
@@ -265,7 +282,15 @@ public class HostService extends Service {
             if (data.type.equals(ContactListData.class.getName())) {
                 CallContactsActivity.start(this, (ContactListData) data.payload);
             }
+        } else if (DeviceAPI.SERVICE_NAME.equals(data.service)) {
+            if (data.type.equals(TimeSyncData.class.getName())) {
+                syncDeviceTime((TimeSyncData) data.payload);
+            }
         }
+    }
+
+    private void syncDeviceTime(@NonNull TimeSyncData data) {
+        DeviceClock.apply(this, data);
     }
 
     private boolean ensureGpsMockStarted() {
@@ -346,6 +371,7 @@ public class HostService extends Service {
         if (mRPCClient != null) {
             mRPCClient.stop();
         }
+        mHandler.removeCallbacks(mBatteryResendRunnable);
         mHandler.removeCallbacksAndMessages(null);
         MediaController.getInstance().clearService();
         mNotificationsCardController.remove();
