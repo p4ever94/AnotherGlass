@@ -9,6 +9,7 @@ struct ContentView: View {
                 transportSection
                 serviceSection
                 deviceSection
+                telemetrySection
                 extensionsSection
                 testSection
                 notesSection
@@ -69,6 +70,17 @@ struct ContentView: View {
         Section("Glass") {
             LabeledContent("Device", value: store.connectedDeviceName ?? "Not connected")
             LabeledContent("Battery", value: store.batteryText)
+        }
+    }
+
+    private var telemetrySection: some View {
+        Section("Telemetry") {
+            TelemetryChartsView(
+                telemetry: store.dailyTelemetry,
+                onPreviousDay: store.showPreviousTelemetryDay,
+                onNextDay: store.showNextTelemetryDay,
+                onToday: store.showTodayTelemetry
+            )
         }
     }
 

@@ -22,6 +22,8 @@ final class CompanionStore: ObservableObject {
     @Published var lastMediaCommand: String?
     @Published var lastSiriRequest: String?
     @Published var localAddress = NetworkAddress.currentIPv4Address() ?? "Unavailable"
+    @Published private(set) var dailyTelemetry = DailyTelemetry.empty(for: Date())
+    @Published private(set) var selectedTelemetryDate = Calendar.current.startOfDay(for: Date())
     @Published var isGPSEnabled = true {
         didSet {
             locationController.isEnabled = isGPSEnabled
@@ -35,6 +37,7 @@ final class CompanionStore: ObservableObject {
 
     private let wifiHost = WiFiHost()
     private let bluetoothHost = BluetoothLEHost()
+    private let telemetryStore = TelemetryStore()
     private let contactStore = CNContactStore()
     private let maximumBluetoothContacts = 25
     private lazy var locationController = LocationController { [weak self] location in
@@ -57,6 +60,7 @@ final class CompanionStore: ObservableObject {
         configureHostCallbacks(for: wifiHost)
         configureHostCallbacks(for: bluetoothHost)
         locationController.isEnabled = isGPSEnabled
+        reloadTelemetry()
     }
 
     func toggleService() {
@@ -134,6 +138,7 @@ final class CompanionStore: ObservableObject {
                     self.serviceState = .connected
                     self.connectedDeviceName = self.transport == .bluetoothLE ? "Glass BLE" : "Glass"
                 }
+                self.recordIncomingMessage(message)
                 self.handle(message)
             }
         }
@@ -163,15 +168,35 @@ final class CompanionStore: ObservableObject {
         }
     }
 
+    func showPreviousTelemetryDay() {
+        selectedTelemetryDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedTelemetryDate) ?? selectedTelemetryDate
+        reloadTelemetry()
+    }
+
+    func showNextTelemetryDay() {
+        let today = Calendar.current.startOfDay(for: Date())
+        guard selectedTelemetryDate < today else { return }
+        selectedTelemetryDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedTelemetryDate) ?? selectedTelemetryDate
+        if selectedTelemetryDate > today {
+            selectedTelemetryDate = today
+        }
+        reloadTelemetry()
+    }
+
+    func showTodayTelemetry() {
+        selectedTelemetryDate = Calendar.current.startOfDay(for: Date())
+        reloadTelemetry()
+    }
+
     private func send(location: CLLocation) {
         guard serviceState == .connected else { return }
         let payload = GlassLocation(location)
         latestLocationText = payload.displayText
-        activeHost.send(.location(payload))
+        send(.location(payload))
     }
 
     private func sendEmptyMediaState() {
-        activeHost.send(.mediaState(MediaStateData.empty))
+        send(.mediaState(MediaStateData.empty))
     }
 
     func sendFakeNotification() {
@@ -179,7 +204,7 @@ final class CompanionStore: ObservableObject {
             lastEvent = "Connect Glass first"
             return
         }
-        activeHost.send(.notification(.fake))
+        send(.notification(.fake))
         lastEvent = "Fake notification sent"
     }
 
@@ -188,7 +213,7 @@ final class CompanionStore: ObservableObject {
             do {
                 guard try await requestContactsAccess() else {
                     lastEvent = "Contacts permission denied"
-                    activeHost.send(.contactList(ContactListData(contacts: [])))
+                    send(.contactList(ContactListData(contacts: [])))
                     return
                 }
 
@@ -197,13 +222,37 @@ final class CompanionStore: ObservableObject {
                 if transport == .bluetoothLE, contacts.count > maximumBluetoothContacts {
                     contacts = Array(contacts.prefix(maximumBluetoothContacts))
                 }
-                activeHost.send(.contactList(ContactListData(contacts: contacts)))
+                send(.contactList(ContactListData(contacts: contacts)))
                 lastEvent = "Sent \(contacts.count) contacts"
             } catch {
                 lastEvent = "Contacts unavailable: \(error.localizedDescription)"
-                activeHost.send(.contactList(ContactListData(contacts: [])))
+                send(.contactList(ContactListData(contacts: [])))
             }
         }
+    }
+
+    private func send(_ message: RPCMessage) {
+        activeHost.send(message)
+        telemetryStore.recordMessage(.toGlasses, message: message, transport: transport)
+        reloadTelemetryIfNeeded(for: Date())
+    }
+
+    private func recordIncomingMessage(_ message: RPCMessage) {
+        telemetryStore.recordMessage(.fromGlasses, message: message, transport: transport)
+        if case .battery(let battery) = message.payload {
+            telemetryStore.recordBatteryStatus(battery)
+        }
+        reloadTelemetryIfNeeded(for: Date())
+    }
+
+    private func reloadTelemetryIfNeeded(for date: Date) {
+        let calendar = Calendar.current
+        guard calendar.isDate(date, inSameDayAs: selectedTelemetryDate) else { return }
+        reloadTelemetry()
+    }
+
+    private func reloadTelemetry() {
+        dailyTelemetry = telemetryStore.dailyTelemetry(for: selectedTelemetryDate)
     }
 
     private func requestContactsAccess() async throws -> Bool {
